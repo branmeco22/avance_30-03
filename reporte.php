@@ -2,8 +2,6 @@
 include_once('index.php');
 $pdf = new PDF();
 
-$pdf->AddPage('LANDSCAPE', 'LETTER');
-
 $pdf->SetFont('Arial', '', 10);
 $miCabecera = array('COMPETENCIA', 'DEF. ÁREA', 'PENSAMIENTO', 'IHS', 'VALORACIONES POR PERÍODO', 'DEFINITIVA ASIGNATURA', 'RECUPERACIÓN');
 
@@ -22,6 +20,6 @@ $misDatos = array(
     array('competencia' => 'APRENDIENDO EL BUEN VIVIR', 'defArea' => '0.0', 'pensamiento' => 'PENSAMIENTO SALUDABLE', 'ihs' => '2', 'valoracionPeriodo' => '0.0', 'definitivaAsignatura' => '4.0', 'recuperacion' => '3.0'),
 );
 
-$pdf->ImprovedTable($miCabecera, $misDatos);
+$pdf->cabeceraHorizontal($miCabecera, $misDatos);
 
 $pdf->Output(); //Salida al navegador

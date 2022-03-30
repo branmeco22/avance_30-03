@@ -3,7 +3,7 @@ require('fpdf/fpdf.php');
 
 class PDF extends FPDF
 {
-    public function header()
+    function header()
     {
         $this->SetFont('Arial', 'B', 12);
         $this->Image('img/carlos_ramon.png', 20, 10, 20, 20, 'png');
@@ -33,7 +33,7 @@ class PDF extends FPDF
         $this->Ln(16.7);
     }
 
-    public function subHeader()
+    function subHeader()
     {
         $this->SetY(40);
         //sub-encabezado
@@ -76,6 +76,125 @@ class PDF extends FPDF
         $this->SetFont('Arial', '', 10);
         $this->Cell(20, 5, utf8_decode('26/11/2021'));
         $this->Ln(7);
+    }
+
+    // Una tabla más completa
+    function cabeceraHorizontal($header, $data)
+    {
+        //Colores, ancho de línea y fuente en negrita
+        $this->SetXY(10, 59.7);
+        $this->SetFont('Arial', 'B', 10);
+        $this->SetFillColor(255, 255, 255); //Fondo naranja de celda
+        $this->SetTextColor(0); //Letra color blanco
+        $this->SetFont('');
+        $this->SetDrawColor(128, 0, 0);
+        $this->SetLineWidth(.3);
+
+        // Anchuras de las columnas
+        $w = array(40, 20, 40, 8, 55, 45, 40);
+        // Cabeceras
+        for ($i = 0; $i < count($header); $i++)
+            $this->Cell($w[$i], 5, utf8_decode($header[$i]), 1, 0, 'C', true);
+        $this->Ln();
+
+        // Datos
+        foreach ($data as $row) {
+            $this->CellFitSpace($w[0], 5, $row[0], 'LR', true);
+            $this->CellFitSpace($w[1], 5, $row[1], 'LR', true);
+            $this->CellFitSpace($w[2], 5, number_format($row[2]), 'LR', 1, 'R', true);
+            $this->CellFitSpace($w[3], 5, number_format($row[3]), 'LR', 1, 'R', true);
+            $this->Ln();
+        }
+        // Línea de cierre
+        $this->Cell(array_sum($w), 0, '', 'T');
+    }
+
+    function datosHorizontal($datos)
+    {
+        $this->SetXY(10, 57);
+        $this->SetFont('Arial', '', 10);
+        $this->SetFillColor(229, 229, 229); //Gris tenue de cada fila
+        $this->SetTextColor(3, 3, 3); //Color del texto: Negro
+        $bandera = true; //Para alternar el relleno
+        foreach ($datos as $fila) {
+            //Use CellFitSpace en lugar de Cell
+            $this->CellFitSpace(40, 7, utf8_decode($fila['competencia']), 1, 0, 'L', $bandera);
+            $this->CellFitSpace(20, 7, utf8_decode($fila['defArea']), 1, 0, 'L', $bandera);
+            $this->CellFitSpace(40, 7, utf8_decode($fila['pensamiento']), 1, 0, 'L', $bandera);
+            $this->CellFitSpace(8, 7, utf8_decode($fila['ihs']), 1, 0, 'L', $bandera);
+            $this->CellFitSpace(55, 7, utf8_decode($fila['valoracionPeriodo']), 1, 0, 'L', $bandera);
+            $this->CellFitSpace(45, 7, utf8_decode($fila['definitivaAsignatura']), 1, 0, 'L', $bandera);
+            $this->CellFitSpace(45, 7, utf8_decode($fila['recuperacion']), 1, 0, 'L', $bandera);
+            $this->Ln(); //Salto de línea para generar otra fila
+            $bandera = !$bandera; //Alterna el valor de la bandera
+        }
+    }
+
+    function tablaHorizontal($cabeceraHorizontal, $datosHorizontal)
+    {
+        $this->cabeceraHorizontal($cabeceraHorizontal);
+        $this->datosHorizontal($datosHorizontal);
+    }
+
+    //***** Aquí comienza código para ajustar texto *************
+    //***********************************************************
+    function CellFit($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '', $scale = false, $force = true)
+    {
+        //obtener ancho de cadena
+        $str_width = $this->GetStringWidth($txt);
+
+        //Calcular la relación para ajustar la celda
+        if ($w == 0)
+            $w = $this->w - $this->rMargin - $this->x;
+        $ratio = ($w - $this->cMargin * 2) / $str_width;
+
+        $fit = ($ratio < 1 || ($ratio > 1 && $force));
+        if ($fit) {
+            if ($scale) {
+                //Calcular escala horizontal
+                $horiz_scale = $ratio * 100.0;
+                //Establecer escala horizontal
+                $this->_out(sprintf('BT %.2F Tz ET', $horiz_scale));
+            } else {
+                //Calcular el espacio entre caracteres en puntos
+                $char_space = ($w - $this->cMargin * 2 - $str_width) / max($this->MBGetStringLength($txt) - 1, 1) * $this->k;
+                //Establecer espaciado entre caracteres
+                $this->_out(sprintf('BT %.2F Tc ET', $char_space));
+            }
+            //Anular la alineación del usuario (ya que el texto llenará la celda)
+            $align = '';
+        }
+
+        //Pasar al método de celda
+        $this->Cell($w, $h, $txt, $border, $ln, $align, $fill, $link);
+
+        //Restablecer espaciado entre caracteres/escala horizontal
+        if ($fit)
+            $this->_out('BT ' . ($scale ? '100 Tz' : '0 Tc') . ' ET');
+    }
+
+    function CellFitSpace($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '')
+    {
+        $this->CellFit($w, $h, $txt, $border, $ln, $align, $fill, $link, false, false);
+    }
+
+    //Parche para trabajar también con texto de doble byte CJK
+    function MBGetStringLength($s)
+    {
+        if ($this->CurrentFont['type'] == 'Type0') {
+            $len = 0;
+            $nbbytes = strlen($s);
+            for ($i = 0; $i < $nbbytes; $i++) {
+                if (ord($s[$i]) < 128)
+                    $len++;
+                else {
+                    $len++;
+                    $i++;
+                }
+            }
+            return $len;
+        } else
+            return strlen($s);
     }
 
     public function footer()
@@ -122,27 +241,6 @@ class PDF extends FPDF
             $data[] = explode(';', trim($line));
         return $data;
     }
-
-    // Una tabla más completa
-    function ImprovedTable($header, $data)
-    {
-        // Anchuras de las columnas
-        $w = array(40, 20, 40, 8, 55, 45, 40);
-        // Cabeceras
-        for ($i = 0; $i < count($header); $i++)
-            $this->Cell($w[$i], 7, $header[$i], 1, 0, 'C');
-        $this->Ln();
-        // Datos
-        foreach ($data as $row) {
-            $this->Cell($w[0], 5, $row[0], 'LR');
-            $this->Cell($w[1], 5, $row[1], 'LR');
-            $this->Cell($w[2], 5, number_format($row[2]), 'LR', 0, 'R');
-            $this->Cell($w[3], 5, number_format($row[3]), 'LR', 0, 'R');
-            $this->Ln();
-        }
-        // Línea de cierre
-        $this->Cell(array_sum($w), 0, '', 'T');
-    }
 }
 
 $pdf = new PDF();
@@ -152,7 +250,7 @@ $header = array('COMPETENCIA', 'DEF. ÁREA', 'PENSAMIENTOS', 'IHS', 'VALORACIONE
 $data = $pdf->LoadData('paises.txt');
 $pdf->SetFont('Arial', '', 10);
 $pdf->AddPage('LANDSCAPE', 'LETTER');
-$pdf->ImprovedTable($header, $data);
+$pdf->cabeceraHorizontal($header, $data);
 $pdf->subHeader();
 
 $pdf->Output();
